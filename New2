@@ -1,0 +1,195 @@
+AutoAudit - Module 1 (With Code)
+
+====================================
+1. Create Database
+====================================
+
+CREATE DATABASE autoaudit;
+
+USE autoaudit;
+
+CREATE TABLE printer_ips (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    line_name VARCHAR(20) NOT NULL,
+    top_folder VARCHAR(255) NOT NULL,
+    bottom_folder VARCHAR(255) NOT NULL
+);
+
+INSERT INTO printer_ips(line_name,top_folder,bottom_folder)
+VALUES
+('SMD-01','\\192.168.10.101\PrinterLogs','\\192.168.10.102\PrinterLogs'),
+('SMD-02','\\192.168.10.103\PrinterLogs','\\192.168.10.104\PrinterLogs');
+
+====================================
+2. db.php
+====================================
+
+<?php
+
+$host="localhost";
+$user="root";
+$password="";
+$database="autoaudit";
+
+$conn=mysqli_connect($host,$user,$password,$database);
+
+if(!$conn){
+    die("Database Connection Failed");
+}
+
+?>
+
+====================================
+3. audit.php (AJAX)
+====================================
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Auto Audit</title>
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+</head>
+
+<body>
+
+<select id="line">
+
+<option value="">Select Line</option>
+
+<?php
+
+include "db.php";
+
+$result=mysqli_query($conn,"SELECT line_name FROM printer_ips");
+
+while($row=mysqli_fetch_assoc($result))
+{
+?>
+
+<option value="<?php echo $row['line_name']; ?>">
+
+<?php echo $row['line_name']; ?>
+
+</option>
+
+<?php
+}
+?>
+
+</select>
+
+<br><br>
+
+PCB Thickness
+
+<input type="text" id="pcb">
+
+<br><br>
+
+Pressure
+
+<input type="text" id="pressure">
+
+<br><br>
+
+Temperature
+
+<input type="text" id="temperature">
+
+<script>
+
+$("#line").change(function(){
+
+var line=$("#line").val();
+
+$.ajax({
+
+url:"autofill.php",
+
+type:"POST",
+
+data:{line:line},
+
+dataType:"json",
+
+success:function(data){
+
+$("#pcb").val(data.top.pcb);
+
+$("#pressure").val(data.top.pressure);
+
+$("#temperature").val(data.top.temperature);
+
+}
+
+});
+
+});
+
+</script>
+
+</body>
+
+</html>
+
+====================================
+4. autofill.php
+====================================
+
+<?php
+
+include "db.php";
+
+$line=$_POST['line'];
+
+$query=mysqli_query($conn,"SELECT * FROM printer_ips WHERE line_name='$line'");
+
+$row=mysqli_fetch_assoc($query);
+
+echo json_encode(
+
+[
+"top"=>[
+"pcb"=>"8mm",
+"pressure"=>"40",
+"temperature"=>"27"
+],
+
+"bottom"=>[
+"pcb"=>"7.9mm",
+"pressure"=>"39",
+"temperature"=>"28"
+]
+]
+
+);
+
+?>
+
+====================================
+FLOW
+====================================
+
+Select Line
+
+â†“
+
+AJAX
+
+â†“
+
+autofill.php
+
+â†“
+
+JSON
+
+â†“
+
+Fill Input Fields
+
+â†“
+
+No Page Reload
