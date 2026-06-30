@@ -1,0 +1,195 @@
+AutoAudit Example - PHP + AJAX + Printer Logs
+
+Step 1 - Project Structure
+
+    AutoAudit/
+    â”‚
+    â”œâ”€â”€ audit.php
+    â”œâ”€â”€ autofill.php
+    â”œâ”€â”€ machines.php
+    â””â”€â”€ Logs/
+
+Step 2 - audit.php
+
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <title>Auto Audit</title>
+    </head>
+    <body>
+
+    <h2>Auto Audit</h2>
+
+    <select id="line">
+    <option value="">Select Line</option>
+    <option value="SMD-01">SMD-01</option>
+    <option value="SMD-02">SMD-02</option>
+    <option value="SMD-03">SMD-03</option>
+    </select>
+
+    <br><br>
+
+    PCB Thickness
+    <input type="text" id="pcbThickness">
+
+    <br><br>
+
+    Pressure
+    <input type="text" id="pressure">
+
+    <br><br>
+
+    Temperature
+    <input type="text" id="temperature">
+
+    <script>
+    document.getElementById("line").addEventListener("change",function(){
+
+    let line=this.value;
+
+    if(line=="") return;
+
+    fetch("autofill.php?line="+encodeURIComponent(line))
+    .then(response=>response.json())
+    .then(data=>{
+
+    document.getElementById("pcbThickness").value=data.top.pcbThickness;
+    document.getElementById("pressure").value=data.top.pressure;
+    document.getElementById("temperature").value=data.top.temperature;
+
+    })
+    .catch(function(){
+    alert("Unable to fetch Printer Log.");
+    });
+
+    });
+    </script>
+
+    </body>
+    </html>
+
+Step 3 - machines.php
+
+    <?php
+
+    $machines=[
+
+    "SMD-01"=>[
+    "top"=>"\\\\192.168.10.101\\PrinterLogs",
+    "bottom"=>"\\\\192.168.10.102\\PrinterLogs"
+    ],
+
+    "SMD-02"=>[
+    "top"=>"\\\\192.168.10.103\\PrinterLogs",
+    "bottom"=>"\\\\192.168.10.104\\PrinterLogs"
+    ],
+
+    "SMD-03"=>[
+    "top"=>"\\\\192.168.10.105\\PrinterLogs",
+    "bottom"=>"\\\\192.168.10.106\\PrinterLogs"
+    ]
+
+    ];
+
+Step 4 - autofill.php
+
+    <?php
+
+    include "machines.php";
+
+    header("Content-Type: application/json");
+
+    $line=$_GET['line'];
+
+    if(!isset($machines[$line])){
+    echo json_encode(["error"=>"Invalid Line"]);
+    exit;
+    }
+
+    function latestFile($folder){
+
+    $files=glob($folder."\\*.txt");
+
+    if(empty($files))
+    return false;
+
+    usort($files,function($a,$b){
+    return filemtime($b)-filemtime($a);
+    });
+
+    return $files[0];
+    }
+
+    function readLog($folder){
+
+    $file=latestFile($folder);
+
+    if(!$file)
+    return [];
+
+    $data=[];
+
+    $lines=file($file,FILE_IGNORE_NEW_LINES);
+
+    foreach($lines as $line){
+
+    if(strpos($line,":")!==false){
+
+    list($key,$value)=explode(":",$line,2);
+
+    $data[trim($key)]=trim($value);
+
+    }
+
+    }
+
+    return $data;
+
+    }
+
+    $top=readLog($machines[$line]["top"]);
+    $bottom=readLog($machines[$line]["bottom"]);
+
+    echo json_encode([
+
+    "top"=>[
+    "pcbThickness"=>$top["PCB Thickness"] ?? "",
+    "pressure"=>$top["Pressure"] ?? "",
+    "temperature"=>$top["Temperature"] ?? ""
+    ],
+
+    "bottom"=>[
+    "pcbThickness"=>$bottom["PCB Thickness"] ?? "",
+    "pressure"=>$bottom["Pressure"] ?? "",
+    "temperature"=>$bottom["Temperature"] ?? ""
+    ]
+
+    ]);
+
+    ?>
+
+Step 5 - Example Printer Log
+
+    PCB Thickness: 8mm
+    Pressure: 40
+    Temperature: 27
+    Humidity: 42%
+    Squeegee Speed: 120
+
+Step 6 - Flow
+
+1.  User selects an SMD line.
+2.  JavaScript sends an AJAX request to autofill.php.
+3.  autofill.php gets the printer folder from machines.php.
+4.  PHP finds the latest TXT log file.
+5.  PHP reads the log.
+6.  Required parameters are extracted.
+7.  Data is returned as JSON.
+8.  Form fields are updated automatically.
+9.  The page does not reload.
+
+Production Recommendation
+
+Instead of storing printer IPs in machines.php, store them in a MySQL
+table (printer_ips). When a printer IP changes, update only the database
+instead of editing PHP code.
