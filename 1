@@ -1,0 +1,305 @@
+Step 1 : audit.php
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>Auto Audit</title>
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+</head>
+
+<body>
+
+<h2>Auto Audit</h2>
+
+<select id="line" class="form-control">
+
+<option value="">Select Line</option>
+
+<option value="SMD-01">SMD-01</option>
+
+<option value="SMD-02">SMD-02</option>
+
+<option value="SMD-03">SMD-03</option>
+
+<option value="SMD-04">SMD-04</option>
+
+</select>
+
+<br><br>
+
+PCB Thickness
+
+<input type="text" id="pcbThickness">
+
+<br><br>
+
+Pressure
+
+<input type="text" id="pressure">
+
+<br><br>
+
+Temperature
+
+<input type="text" id="temperature">
+
+<script>
+
+$("#line").change(function(){
+
+var selectedLine=$(this).val();
+
+if(selectedLine=="")
+{
+    return;
+}
+
+$.ajax({
+
+url:"autofill.php",
+
+type:"POST",
+
+data:{
+line:selectedLine
+},
+
+dataType:"json",
+
+beforeSend:function(){
+
+console.log("Fetching Data...");
+
+},
+
+success:function(response){
+
+$("#pcbThickness").val(response.pcbThickness);
+
+$("#pressure").val(response.pressure);
+
+$("#temperature").val(response.temperature);
+
+},
+
+error:function(xhr,status,error){
+
+console.log(xhr.responseText);
+
+alert("Unable to fetch data.");
+
+}
+
+});
+
+});
+
+</script>
+
+</body>
+
+</html>
+
+
+
+2-autofill.php
+
+<?php
+
+header("Content-Type: application/json");
+
+$line=$_POST['line'];
+
+if($line=="SMD-01")
+{
+
+echo json_encode([
+
+"pcbThickness"=>"1.60",
+
+"pressure"=>"40",
+
+"temperature"=>"28"
+
+]);
+
+}
+
+elseif($line=="SMD-02")
+{
+
+echo json_encode([
+
+"pcbThickness"=>"1.55",
+
+"pressure"=>"42",
+
+"temperature"=>"29"
+
+]);
+
+}
+
+else
+{
+
+echo json_encode([
+
+"pcbThickness"=>"",
+
+"pressure"=>"",
+
+"temperature"=>""
+
+]);
+
+}
+
+?>
+
+3-Create Table
+
+CREATE TABLE printer_ips (
+
+id INT AUTO_INCREMENT PRIMARY KEY,
+
+line_name VARCHAR(20) NOT NULL,
+
+top_folder VARCHAR(255) NOT NULL,
+
+bottom_folder VARCHAR(255) NOT NULL
+
+);
+
+4- INsert Data
+
+INSERT INTO printer_ips
+(line_name,top_folder,bottom_folder)
+
+VALUES
+
+(
+
+'SMD-01',
+
+'\\\\192.168.10.101\\SmartSP\\Logs',
+
+'\\\\192.168.10.102\\SmartSP\\Logs'
+
+),
+
+(
+
+'SMD-02',
+
+'\\\\192.168.10.103\\SmartSP\\Logs',
+
+'\\\\192.168.10.104\\SmartSP\\Logs'
+
+);
+
+
+==db.php
+
+<?php
+
+$conn=new mysqli(
+
+"localhost",
+
+"root",
+
+"",
+
+"autoaudit"
+
+);
+
+if($conn->connect_error)
+{
+
+die("Database Error");
+
+}
+
+?>
+
+=== autofill.php
+
+<?php
+
+include "db.php";
+
+header("Content-Type: application/json");
+
+$line=$_POST['line'];
+
+$stmt=$conn->prepare(
+
+"SELECT top_folder,bottom_folder
+FROM printer_ips
+WHERE line_name=?"
+
+);
+
+$stmt->bind_param("s",$line);
+
+$stmt->execute();
+
+$result=$stmt->get_result();
+
+if($result->num_rows==0)
+{
+
+echo json_encode([
+
+"status"=>"error",
+
+"message"=>"Line Not Found"
+
+]);
+
+exit;
+
+}
+
+$row=$result->fetch_assoc();
+
+echo json_encode([
+
+"status"=>"success",
+
+"topFolder"=>$row['top_folder'],
+
+"bottomFolder"=>$row['bottom_folder']
+
+]);
+
+?>
+
+
+Step 5 - audit.php
+
+Temporarily change the AJAX success function.
+
+Replace
+
+$("#pcbThickness").val(response.pcbThickness);
+
+with
+
+alert(
+
+"Top Folder : "
+
++response.topFolder+
+
+"\n\nBottom Folder : "
+
++response.bottomFolder
+
+);
+
+
