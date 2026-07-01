@@ -1,0 +1,48 @@
+function simulateTyping(input, value) {
+
+    input.focus();
+
+    input.value = "";
+
+    let i = 0;
+
+    let timer = setInterval(function () {
+
+        if (i < value.length) {
+
+            input.value += value.charAt(i);
+
+            input.dispatchEvent(new Event("input", { bubbles: true }));
+            input.dispatchEvent(new Event("keyup", { bubbles: true }));
+
+            i++;
+
+        } else {
+
+            clearInterval(timer);
+
+            input.dispatchEvent(new Event("change", { bubbles: true }));
+            input.blur();
+
+        }
+
+    }, 20);
+
+}
+
+use it like this
+
+simulateTyping(
+    document.getElementById("pcbThickness"),
+    response.top.pcbThickness
+);
+
+simulateTyping(
+    document.getElementById("pressure"),
+    response.top.pressure
+);
+
+simulateTyping(
+    document.getElementById("temperature"),
+    response.top.pcbTemperature
+);
