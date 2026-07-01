@@ -1,0 +1,234 @@
+
+AutoAudit - Module 10 : Save Audit to MySQL
+
+==================================================
+Purpose
+==================================================
+
+Save the completed audit (including auto-filled
+printer values) into the MySQL database.
+
+==================================================
+Step 1 : Create Table
+==================================================
+
+CREATE TABLE audit_data (
+
+id INT AUTO_INCREMENT PRIMARY KEY,
+
+audit_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+line_name VARCHAR(20),
+
+top_pcb_width VARCHAR(50),
+top_pcb_thickness VARCHAR(50),
+top_temperature VARCHAR(50),
+top_pressure VARCHAR(50),
+top_print_speed VARCHAR(50),
+
+bottom_pcb_width VARCHAR(50),
+bottom_pcb_thickness VARCHAR(50),
+bottom_temperature VARCHAR(50),
+bottom_pressure VARCHAR(50),
+bottom_print_speed VARCHAR(50),
+
+remarks TEXT
+
+);
+
+==================================================
+Step 2 : save_audit.php
+==================================================
+
+<?php
+
+include "db.php";
+
+if($_SERVER["REQUEST_METHOD"]!="POST"){
+    exit("Invalid Request");
+}
+
+$sql="INSERT INTO audit_data(
+
+line_name,
+
+top_pcb_width,
+top_pcb_thickness,
+top_temperature,
+top_pressure,
+top_print_speed,
+
+bottom_pcb_width,
+bottom_pcb_thickness,
+bottom_temperature,
+bottom_pressure,
+bottom_print_speed,
+
+remarks
+
+)
+
+VALUES(
+
+?,?,?,?,?,?,?,?,?,?,?,?
+
+)";
+
+$stmt=$conn->prepare($sql);
+
+$stmt->bind_param(
+
+"ssssssssssss",
+
+$_POST["line"],
+
+$_POST["top_pcbWidth"],
+$_POST["top_pcbThickness"],
+$_POST["top_temperature"],
+$_POST["top_pressure"],
+$_POST["top_printSpeed"],
+
+$_POST["bottom_pcbWidth"],
+$_POST["bottom_pcbThickness"],
+$_POST["bottom_temperature"],
+$_POST["bottom_pressure"],
+$_POST["bottom_printSpeed"],
+
+$_POST["remarks"]
+
+);
+
+if($stmt->execute()){
+
+    echo "SUCCESS";
+
+}else{
+
+    echo "FAILED";
+
+}
+
+$stmt->close();
+$conn->close();
+
+?>
+
+==================================================
+Step 3 : audit.php Save Button
+==================================================
+
+<button id="saveAudit">Save Audit</button>
+
+==================================================
+Step 4 : Save AJAX
+==================================================
+
+<script>
+
+$("#saveAudit").click(function(){
+
+$.ajax({
+
+url:"save_audit.php",
+
+type:"POST",
+
+data:{
+
+line:$("#line").val(),
+
+top_pcbWidth:$("#top_pcbWidth").val(),
+top_pcbThickness:$("#top_pcbThickness").val(),
+top_temperature:$("#top_temperature").val(),
+top_pressure:$("#top_pressure").val(),
+top_printSpeed:$("#top_printSpeed").val(),
+
+bottom_pcbWidth:$("#bottom_pcbWidth").val(),
+bottom_pcbThickness:$("#bottom_pcbThickness").val(),
+bottom_temperature:$("#bottom_temperature").val(),
+bottom_pressure:$("#bottom_pressure").val(),
+bottom_printSpeed:$("#bottom_printSpeed").val(),
+
+remarks:$("#remarks").val()
+
+},
+
+success:function(response){
+
+if(response=="SUCCESS"){
+
+alert("Audit Saved Successfully");
+
+}else{
+
+alert("Database Save Failed");
+
+}
+
+},
+
+error:function(){
+
+alert("Unable to save audit.");
+
+}
+
+});
+
+});
+
+</script>
+
+==================================================
+Required HTML Inputs
+==================================================
+
+<textarea id="remarks"></textarea>
+
+<button id="saveAudit">
+Save Audit
+</button>
+
+==================================================
+Flow
+==================================================
+
+Select Line
+        ↓
+Latest Printer Logs
+        ↓
+Auto Fill Form
+        ↓
+Operator Reviews Data
+        ↓
+Click Save Audit
+        ↓
+AJAX
+        ↓
+save_audit.php
+        ↓
+MySQL
+        ↓
+Audit Saved
+
+==================================================
+Project Status
+==================================================
+
+Modules Completed
+
+✓ Module 4 - AJAX (No Reload)
+
+✓ Module 5 - Database Lookup
+
+✓ Module 6 - Latest Log Detection
+
+✓ Module 7 - Log Parser
+
+✓ Module 8 - Auto Fill
+
+✓ Module 9 - Top & Bottom Merge
+
+✓ Module 10 - Save Audit
+
+You now have the complete core workflow for AutoAudit.

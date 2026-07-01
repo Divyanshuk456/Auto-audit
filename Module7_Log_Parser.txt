@@ -1,0 +1,176 @@
+
+AutoAudit - Module 7 : Log Parser
+
+==================================================
+Purpose
+==================================================
+
+Read the latest TXT log file and convert its contents
+into a PHP associative array.
+
+Example Log File
+
+PCB Width - 35
+PCB Thickness - 1.60
+PCB Temperature - 42
+Pressure - 40
+Print Speed - 120
+
+After Parsing
+
+$data["PCB Width"] = 35;
+$data["PCB Thickness"] = 1.60;
+$data["PCB Temperature"] = 42;
+$data["Pressure"] = 40;
+$data["Print Speed"] = 120;
+
+==================================================
+File : parser.php
+==================================================
+
+<?php
+
+function parsePrinterLog($logFile)
+{
+    if(!file_exists($logFile)){
+        return [];
+    }
+
+    $data = [];
+
+    $lines = file($logFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+
+    foreach($lines as $line){
+
+        $line = trim($line);
+
+        if(strpos($line,"-") !== false){
+
+            list($key,$value)=explode("-", $line, 2);
+
+            $key = trim($key);
+            $value = trim($value);
+
+            $data[$key]=$value;
+        }
+    }
+
+    return $data;
+}
+
+?>
+
+==================================================
+Update autofill.php
+==================================================
+
+<?php
+
+include "db.php";
+include "latestlog.php";
+include "parser.php";
+
+header("Content-Type: application/json");
+
+$line=$_POST['line'];
+
+$stmt=$conn->prepare(
+"SELECT top_folder,bottom_folder
+ FROM printer_ips
+ WHERE line_name=?");
+
+$stmt->bind_param("s",$line);
+$stmt->execute();
+
+$result=$stmt->get_result();
+
+if($result->num_rows==0){
+    echo json_encode([
+        "status"=>"error",
+        "message"=>"Line Not Found"
+    ]);
+    exit;
+}
+
+$row=$result->fetch_assoc();
+
+$topLog=getLatestLogFile($row["top_folder"]);
+$bottomLog=getLatestLogFile($row["bottom_folder"]);
+
+$top=parsePrinterLog($topLog);
+$bottom=parsePrinterLog($bottomLog);
+
+echo json_encode([
+
+"status"=>"success",
+
+"top"=>[
+"pcbWidth"=>$top["PCB Width"] ?? "",
+"pcbThickness"=>$top["PCB Thickness"] ?? "",
+"pcbTemperature"=>$top["PCB Temperature"] ?? "",
+"pressure"=>$top["Pressure"] ?? "",
+"printSpeed"=>$top["Print Speed"] ?? ""
+],
+
+"bottom"=>[
+"pcbWidth"=>$bottom["PCB Width"] ?? "",
+"pcbThickness"=>$bottom["PCB Thickness"] ?? "",
+"pcbTemperature"=>$bottom["PCB Temperature"] ?? "",
+"pressure"=>$bottom["Pressure"] ?? "",
+"printSpeed"=>$bottom["Print Speed"] ?? ""
+]
+
+]);
+
+?>
+
+==================================================
+AJAX Example
+==================================================
+
+success:function(response){
+
+if(response.status=="success"){
+
+$("#pcbThickness").val(response.top.pcbThickness);
+$("#pressure").val(response.top.pressure);
+$("#temperature").val(response.top.pcbTemperature);
+
+}
+
+}
+
+==================================================
+Flow
+==================================================
+
+Select Line
+↓
+
+Find Latest TXT
+↓
+
+Open File
+↓
+
+Read Line by Line
+↓
+
+Split Using '-'
+↓
+
+Create PHP Array
+↓
+
+Return JSON
+↓
+
+Auto Fill Form
+
+==================================================
+Next Module
+==================================================
+
+Module 8 will map all printer parameters to your
+audit form automatically and support both Top and
+Bottom printer values.

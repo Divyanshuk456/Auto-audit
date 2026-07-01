@@ -1,0 +1,169 @@
+
+AutoAudit - Module 11 : Auto Refresh Printer Data
+
+==================================================
+Purpose
+==================================================
+
+Automatically refresh printer values without reloading
+the page after a line has been selected.
+
+Flow
+
+User Selects Line
+        ↓
+Load Latest Printer Log
+        ↓
+Fill Audit Form
+        ↓
+Every 10 Seconds
+        ↓
+Check Latest Printer Log
+        ↓
+Update Changed Values Only
+
+==================================================
+Step 1 : JavaScript Auto Refresh
+==================================================
+
+<script>
+
+let selectedLine="";
+let refreshTimer=null;
+
+$("#line").on("change",function(){
+
+    selectedLine=$(this).val();
+
+    if(selectedLine==""){
+        clearInterval(refreshTimer);
+        return;
+    }
+
+    loadPrinterData();
+
+    clearInterval(refreshTimer);
+
+    refreshTimer=setInterval(function(){
+
+        loadPrinterData();
+
+    },10000);
+
+});
+
+function loadPrinterData(){
+
+    $.ajax({
+
+        url:"autofill.php",
+
+        type:"POST",
+
+        data:{line:selectedLine},
+
+        dataType:"json",
+
+        success:function(response){
+
+            if(response.status!="success"){
+                $("#status").html(response.message);
+                return;
+            }
+
+            $("#top_pcbThickness").val(response.top.pcbThickness);
+            $("#top_pressure").val(response.top.pressure);
+            $("#top_temperature").val(response.top.pcbTemperature);
+
+            $("#bottom_pcbThickness").val(response.bottom.pcbThickness);
+            $("#bottom_pressure").val(response.bottom.pressure);
+            $("#bottom_temperature").val(response.bottom.pcbTemperature);
+
+            $("#lastUpdate").text(
+                "Last Update : "+
+                new Date().toLocaleTimeString()
+            );
+
+        },
+
+        error:function(){
+
+            $("#status").html("Unable to refresh printer data.");
+
+        }
+
+    });
+
+}
+
+</script>
+
+==================================================
+Step 2 : HTML
+==================================================
+
+<div id="status"></div>
+
+<div id="lastUpdate">
+Last Update : --
+</div>
+
+==================================================
+Step 3 : Stop Refresh
+==================================================
+
+If another line is selected:
+
+clearInterval(refreshTimer);
+
+A new timer starts automatically.
+
+==================================================
+Recommended Refresh Time
+==================================================
+
+Normal Production : 10 Seconds
+
+Busy Production : 5 Seconds
+
+Avoid using less than 3 seconds because it creates
+unnecessary network traffic.
+
+==================================================
+Flow
+==================================================
+
+Select Line
+      ↓
+AJAX
+      ↓
+Latest Printer Log
+      ↓
+Fill Form
+      ↓
+Wait 10 Seconds
+      ↓
+Refresh Automatically
+      ↓
+No Page Reload
+
+==================================================
+Notes
+==================================================
+
+1. Only the printer values are refreshed.
+2. The page never reloads.
+3. Any values already typed by the operator should
+   not be overwritten unless they are printer fields.
+4. Clear the timer if the page is closed or another
+   line is selected.
+
+==================================================
+Next Module
+==================================================
+
+Module 12 - Offline Printer Detection
+- Detect offline printers
+- Missing folders
+- Missing log files
+- Display printer status to the operator

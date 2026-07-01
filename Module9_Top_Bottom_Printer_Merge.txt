@@ -1,0 +1,190 @@
+
+AutoAudit - Module 9 : Top & Bottom Printer Merge
+
+==================================================
+Purpose
+==================================================
+
+This module combines the parsed data from the Top and
+Bottom printer logs into one JSON response that the
+audit form can use.
+
+Project Flow
+
+User Selects Line
+        ↓
+Database Lookup
+        ↓
+Top Folder          Bottom Folder
+        ↓                  ↓
+Latest Top Log      Latest Bottom Log
+        ↓                  ↓
+Parse Top Log       Parse Bottom Log
+        ↓                  ↓
+Merge Data
+        ↓
+Return JSON
+        ↓
+Auto Fill Form
+
+==================================================
+Update : autofill.php
+==================================================
+
+<?php
+
+include "db.php";
+include "latestlog.php";
+include "parser.php";
+
+header("Content-Type: application/json");
+
+$line = $_POST['line'] ?? '';
+
+if($line==""){
+    echo json_encode([
+        "status"=>"error",
+        "message"=>"No line selected."
+    ]);
+    exit;
+}
+
+$stmt=$conn->prepare(
+"SELECT top_folder,bottom_folder
+ FROM printer_ips
+ WHERE line_name=?");
+
+$stmt->bind_param("s",$line);
+$stmt->execute();
+
+$result=$stmt->get_result();
+
+if($result->num_rows==0){
+
+    echo json_encode([
+        "status"=>"error",
+        "message"=>"Line not found."
+    ]);
+
+    exit;
+}
+
+$row=$result->fetch_assoc();
+
+$topLog=getLatestLogFile($row["top_folder"]);
+$bottomLog=getLatestLogFile($row["bottom_folder"]);
+
+$topData=[];
+$bottomData=[];
+
+if($topLog){
+    $topData=parsePrinterLog($topLog);
+}
+
+if($bottomLog){
+    $bottomData=parsePrinterLog($bottomLog);
+}
+
+$response=[
+
+"status"=>"success",
+
+"line"=>$line,
+
+"top"=>[
+    "pcbWidth"=>$topData["PCB Width"] ?? "",
+    "pcbThickness"=>$topData["PCB Thickness"] ?? "",
+    "pcbTemperature"=>$topData["PCB Temperature"] ?? "",
+    "pressure"=>$topData["Pressure"] ?? "",
+    "printSpeed"=>$topData["Print Speed"] ?? ""
+],
+
+"bottom"=>[
+    "pcbWidth"=>$bottomData["PCB Width"] ?? "",
+    "pcbThickness"=>$bottomData["PCB Thickness"] ?? "",
+    "pcbTemperature"=>$bottomData["PCB Temperature"] ?? "",
+    "pressure"=>$bottomData["Pressure"] ?? "",
+    "printSpeed"=>$bottomData["Print Speed"] ?? ""
+],
+
+"files"=>[
+    "top"=>$topLog,
+    "bottom"=>$bottomLog
+]
+
+];
+
+echo json_encode($response);
+
+?>
+
+==================================================
+Example JSON Returned
+==================================================
+
+{
+  "status":"success",
+  "line":"SMD-01",
+
+  "top":{
+    "pcbWidth":"35",
+    "pcbThickness":"1.60",
+    "pcbTemperature":"42",
+    "pressure":"40",
+    "printSpeed":"120"
+  },
+
+  "bottom":{
+    "pcbWidth":"35",
+    "pcbThickness":"1.58",
+    "pcbTemperature":"43",
+    "pressure":"39",
+    "printSpeed":"118"
+  },
+
+  "files":{
+    "top":"\\\\192.168.10.101\\SmartSP\\Logs\\Board145.txt",
+    "bottom":"\\\\192.168.10.102\\SmartSP\\Logs\\Board145.txt"
+  }
+}
+
+==================================================
+AJAX Example
+==================================================
+
+success:function(response){
+
+    if(response.status!="success"){
+        alert(response.message);
+        return;
+    }
+
+    console.log("Top File : "+response.files.top);
+    console.log("Bottom File : "+response.files.bottom);
+
+    $("#top_pcbThickness").val(response.top.pcbThickness);
+    $("#bottom_pcbThickness").val(response.bottom.pcbThickness);
+
+}
+
+==================================================
+Validation
+==================================================
+
+If Top log is missing:
+- Return blank values for Top.
+- Continue reading Bottom.
+
+If Bottom log is missing:
+- Return blank values for Bottom.
+- Continue reading Top.
+
+This prevents the form from failing if one printer
+is temporarily offline.
+
+==================================================
+Next Module
+==================================================
+
+Module 10 will save the completed audit form to MySQL
+after the operator verifies or edits the auto-filled values.

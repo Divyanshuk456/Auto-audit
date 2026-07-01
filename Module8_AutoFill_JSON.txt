@@ -1,0 +1,166 @@
+
+AutoAudit - Module 8 : Auto-Fill JSON
+
+==================================================
+Purpose
+==================================================
+
+This module receives the parsed printer data from
+autofill.php and automatically fills the audit form
+without reloading the page.
+
+==================================================
+File : audit.php (JavaScript)
+==================================================
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+<script>
+
+$("#line").on("change", function(){
+
+    var line = $(this).val();
+
+    if(line==""){
+        return;
+    }
+
+    $.ajax({
+
+        url:"autofill.php",
+
+        type:"POST",
+
+        data:{ line:line },
+
+        dataType:"json",
+
+        beforeSend:function(){
+
+            $("#status").html("Loading latest printer log...");
+
+        },
+
+        success:function(response){
+
+            if(response.status!="success"){
+                $("#status").html(response.message);
+                return;
+            }
+
+            // TOP PRINTER
+            $("#top_pcbWidth").val(response.top.pcbWidth);
+            $("#top_pcbThickness").val(response.top.pcbThickness);
+            $("#top_temperature").val(response.top.pcbTemperature);
+            $("#top_pressure").val(response.top.pressure);
+            $("#top_printSpeed").val(response.top.printSpeed);
+
+            // BOTTOM PRINTER
+            $("#bottom_pcbWidth").val(response.bottom.pcbWidth);
+            $("#bottom_pcbThickness").val(response.bottom.pcbThickness);
+            $("#bottom_temperature").val(response.bottom.pcbTemperature);
+            $("#bottom_pressure").val(response.bottom.pressure);
+            $("#bottom_printSpeed").val(response.bottom.printSpeed);
+
+            $("#status").html("Latest printer log loaded successfully.");
+
+        },
+
+        error:function(xhr){
+
+            console.log(xhr.responseText);
+
+            $("#status").html("Unable to load printer log.");
+
+        }
+
+    });
+
+});
+
+</script>
+
+==================================================
+Example HTML Inputs
+==================================================
+
+<div id="status"></div>
+
+<h3>Top Printer</h3>
+
+<input id="top_pcbWidth">
+<input id="top_pcbThickness">
+<input id="top_temperature">
+<input id="top_pressure">
+<input id="top_printSpeed">
+
+<h3>Bottom Printer</h3>
+
+<input id="bottom_pcbWidth">
+<input id="bottom_pcbThickness">
+<input id="bottom_temperature">
+<input id="bottom_pressure">
+<input id="bottom_printSpeed">
+
+==================================================
+Expected JSON from autofill.php
+==================================================
+
+{
+    "status":"success",
+
+    "top":{
+        "pcbWidth":"35",
+        "pcbThickness":"1.60",
+        "pcbTemperature":"42",
+        "pressure":"40",
+        "printSpeed":"120"
+    },
+
+    "bottom":{
+        "pcbWidth":"35",
+        "pcbThickness":"1.58",
+        "pcbTemperature":"43",
+        "pressure":"39",
+        "printSpeed":"118"
+    }
+}
+
+==================================================
+Flow
+==================================================
+
+User Selects Line
+        ↓
+AJAX Request
+        ↓
+autofill.php
+        ↓
+Latest Top Log
+Latest Bottom Log
+        ↓
+Parser
+        ↓
+JSON Response
+        ↓
+Populate Form
+        ↓
+No Page Reload
+
+==================================================
+Integration Notes
+==================================================
+
+1. Change the HTML input IDs to match your audit.php form.
+2. Add additional fields exactly the same way:
+   $("#fieldId").val(response.top.parameterName);
+3. If a value is missing, the parser returns an empty string.
+4. This module only fills the form; saving is handled later.
+
+==================================================
+Next Module
+==================================================
+
+Module 9 will merge Top and Bottom printer processing,
+perform validation, and prepare the final data before
+saving the audit.

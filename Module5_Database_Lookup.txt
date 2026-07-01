@@ -1,0 +1,141 @@
+
+AutoAudit - Module 5 : Database Lookup
+
+========================================
+Step 1 : Create Table
+========================================
+
+CREATE TABLE printer_ips (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    line_name VARCHAR(20) NOT NULL,
+    top_folder VARCHAR(255) NOT NULL,
+    bottom_folder VARCHAR(255) NOT NULL
+);
+
+========================================
+Step 2 : Sample Data
+========================================
+
+INSERT INTO printer_ips(line_name,top_folder,bottom_folder)
+VALUES
+('SMD-01','\\\\192.168.10.101\\SmartSP\\Logs','\\\\192.168.10.102\\SmartSP\\Logs'),
+('SMD-02','\\\\192.168.10.103\\SmartSP\\Logs','\\\\192.168.10.104\\SmartSP\\Logs');
+
+========================================
+Step 3 : db.php
+========================================
+
+<?php
+
+$host="localhost";
+$user="root";
+$password="";
+$db="autoaudit";
+
+$conn=new mysqli($host,$user,$password,$db);
+
+if($conn->connect_error){
+    die("Database Connection Failed : ".$conn->connect_error);
+}
+
+?>
+
+========================================
+Step 4 : autofill.php
+========================================
+
+<?php
+
+include "db.php";
+
+header("Content-Type: application/json");
+
+$line=$_POST['line'] ?? '';
+
+if($line==""){
+    echo json_encode(["status"=>"error","message"=>"No Line Selected"]);
+    exit;
+}
+
+$stmt=$conn->prepare("SELECT top_folder,bottom_folder FROM printer_ips WHERE line_name=?");
+$stmt->bind_param("s",$line);
+$stmt->execute();
+
+$result=$stmt->get_result();
+
+if($result->num_rows==0){
+
+    echo json_encode([
+        "status"=>"error",
+        "message"=>"Line Not Found"
+    ]);
+
+    exit;
+}
+
+$row=$result->fetch_assoc();
+
+echo json_encode([
+
+    "status"=>"success",
+
+    "line"=>$line,
+
+    "topFolder"=>$row["top_folder"],
+
+    "bottomFolder"=>$row["bottom_folder"]
+
+]);
+
+$stmt->close();
+$conn->close();
+
+?>
+
+========================================
+Step 5 : audit.php AJAX Success
+========================================
+
+Replace the success block with:
+
+success:function(response){
+
+    if(response.status=="success"){
+
+        console.log("Top Folder : "+response.topFolder);
+        console.log("Bottom Folder : "+response.bottomFolder);
+
+        alert(
+            "Top Folder:\n"+response.topFolder+
+            "\n\nBottom Folder:\n"+response.bottomFolder
+        );
+
+    }else{
+
+        alert(response.message);
+
+    }
+
+}
+
+========================================
+How It Works
+========================================
+
+1. User selects SMD-01.
+2. AJAX sends line=SMD-01 to autofill.php.
+3. autofill.php queries printer_ips.
+4. Database returns Top & Bottom folders.
+5. PHP returns JSON.
+6. AJAX receives the folder paths.
+7. No page reload.
+
+========================================
+Next Module
+========================================
+
+Module 6 will:
+- Open the Top printer folder.
+- Find the latest TXT file.
+- Open the latest log.
+- Return the file path for parsing.

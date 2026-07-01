@@ -1,0 +1,186 @@
+
+AutoAudit - Module 6 : Latest Log Detection
+
+==================================================
+Purpose
+==================================================
+
+This module finds the newest TXT log file from the selected
+printer folder.
+
+Example Folder:
+
+\\192.168.10.101\SmartSP\Logs
+
+Contains:
+
+Board001.txt
+Board002.txt
+Board003.txt
+
+The newest file (by modified time) will be selected.
+
+==================================================
+File : latestlog.php
+==================================================
+
+<?php
+
+function getLatestLogFile($folder)
+{
+    if(!is_dir($folder)){
+        return false;
+    }
+
+    $latestFile = "";
+    $latestTime = 0;
+
+    $files = scandir($folder);
+
+    foreach($files as $file){
+
+        if(pathinfo($file, PATHINFO_EXTENSION)!="txt"){
+            continue;
+        }
+
+        $fullPath = $folder . DIRECTORY_SEPARATOR . $file;
+
+        if(!is_file($fullPath)){
+            continue;
+        }
+
+        $modified = filemtime($fullPath);
+
+        if($modified > $latestTime){
+            $latestTime = $modified;
+            $latestFile = $fullPath;
+        }
+
+    }
+
+    return $latestFile;
+}
+
+?>
+
+==================================================
+Update autofill.php
+==================================================
+
+<?php
+
+include "db.php";
+include "latestlog.php";
+
+header("Content-Type: application/json");
+
+$line = $_POST['line'] ?? '';
+
+$stmt = $conn->prepare(
+"SELECT top_folder,bottom_folder
+ FROM printer_ips
+ WHERE line_name=?");
+
+$stmt->bind_param("s",$line);
+$stmt->execute();
+
+$result = $stmt->get_result();
+
+if($result->num_rows==0){
+
+    echo json_encode([
+        "status"=>"error",
+        "message"=>"Line Not Found"
+    ]);
+
+    exit;
+}
+
+$row = $result->fetch_assoc();
+
+$topLatest = getLatestLogFile($row['top_folder']);
+$bottomLatest = getLatestLogFile($row['bottom_folder']);
+
+echo json_encode([
+
+    "status"=>"success",
+
+    "topFolder"=>$row['top_folder'],
+    "bottomFolder"=>$row['bottom_folder'],
+
+    "topLatestLog"=>$topLatest,
+    "bottomLatestLog"=>$bottomLatest
+
+]);
+
+?>
+
+==================================================
+AJAX Success
+==================================================
+
+success:function(response){
+
+    if(response.status=="success"){
+
+        console.log(response.topLatestLog);
+        console.log(response.bottomLatestLog);
+
+        alert(
+            "TOP LOG\n"+
+            response.topLatestLog+
+            "\n\nBOTTOM LOG\n"+
+            response.bottomLatestLog
+        );
+
+    }else{
+
+        alert(response.message);
+
+    }
+
+}
+
+==================================================
+Flow
+==================================================
+
+User Selects Line
+
+↓
+
+Database Lookup
+
+↓
+
+Top Folder
+
+Bottom Folder
+
+↓
+
+Find Latest TXT
+
+↓
+
+Return Latest File Path
+
+↓
+
+No Page Reload
+
+==================================================
+Next Module
+==================================================
+
+Module 7 will:
+1. Open the latest TXT file.
+2. Read every line.
+3. Convert lines like:
+
+PCB Thickness - 1.60
+
+into:
+
+$data['PCB Thickness']="1.60";
+
