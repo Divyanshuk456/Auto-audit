@@ -1,0 +1,122 @@
+AutoAudit - Module 4 (AJAX No Reload)
+
+==========================
+File: audit.php
+==========================
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Auto Audit</title>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+</head>
+<body>
+
+<select id="line">
+<option value="">Select Line</option>
+<option value="SMD-01">SMD-01</option>
+<option value="SMD-02">SMD-02</option>
+<option value="SMD-03">SMD-03</option>
+</select>
+
+PCB Thickness
+<input type="text" id="pcbThickness">
+
+Pressure
+<input type="text" id="pressure">
+
+Temperature
+<input type="text" id="temperature">
+
+<script>
+$("#line").change(function(){
+
+var selectedLine=$(this).val();
+
+if(selectedLine==""){ return; }
+
+$.ajax({
+
+url:"autofill.php",
+type:"POST",
+dataType:"json",
+data:{line:selectedLine},
+
+success:function(response){
+
+$("#pcbThickness").val(response.pcbThickness);
+$("#pressure").val(response.pressure);
+$("#temperature").val(response.temperature);
+
+},
+
+error:function(xhr,status,error){
+
+console.log(xhr.responseText);
+alert("Unable to fetch printer log.");
+
+}
+
+});
+
+});
+</script>
+
+</body>
+</html>
+
+==========================
+File: autofill.php
+==========================
+
+<?php
+
+header("Content-Type: application/json");
+
+$line=$_POST['line'] ?? '';
+
+switch($line){
+
+case "SMD-01":
+echo json_encode([
+"pcbThickness"=>"1.60",
+"pressure"=>"40",
+"temperature"=>"27"
+]);
+break;
+
+case "SMD-02":
+echo json_encode([
+"pcbThickness"=>"1.55",
+"pressure"=>"39",
+"temperature"=>"28"
+]);
+break;
+
+default:
+echo json_encode([
+"pcbThickness"=>"",
+"pressure"=>"",
+"temperature"=>""
+]);
+
+}
+
+?>
+
+==========================
+Flow
+==========================
+
+Select Line
+↓
+AJAX
+↓
+autofill.php
+↓
+JSON
+↓
+Fill Input Fields
+↓
+No Page Reload
