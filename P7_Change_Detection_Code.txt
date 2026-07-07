@@ -1,0 +1,134 @@
+
+AutoAudit Performance Module P7 - Change Detection
+
+=================================================
+Purpose
+=================================================
+
+Detect whether a new printer log has been created.
+If nothing has changed, skip parsing and database updates.
+
+=================================================
+File : ChangeDetector.php
+=================================================
+
+<?php
+
+function hasLogChanged($conn,$line,$board,$latestFile){
+
+    if(!$latestFile || !file_exists($latestFile)){
+        return false;
+    }
+
+    $modified=filemtime($latestFile);
+
+    $stmt=$conn->prepare("
+        SELECT last_file,last_modified
+        FROM sync_status
+        WHERE line_name=? AND board=?
+    ");
+
+    $stmt->bind_param("ss",$line,$board);
+    $stmt->execute();
+
+    $result=$stmt->get_result();
+
+    if($row=$result->fetch_assoc()){
+
+        $oldFile=$row["last_file"];
+        $oldTime=strtotime($row["last_modified"]);
+
+        if($oldFile==$latestFile && $oldTime==$modified){
+            return false;
+        }
+
+    }
+
+    return true;
+
+}
+
+function updateSyncStatus($conn,$line,$board,$latestFile){
+
+    $time=date("Y-m-d H:i:s",filemtime($latestFile));
+
+    $stmt=$conn->prepare("
+        REPLACE INTO sync_status
+        (line_name,board,last_file,last_modified)
+        VALUES(?,?,?,?)
+    ");
+
+    $stmt->bind_param(
+        "ssss",
+        $line,
+        $board,
+        $latestFile,
+        $time
+    );
+
+    $stmt->execute();
+
+}
+
+?>
+
+=================================================
+Usage in SyncLogs.php
+=================================================
+
+$latest=getLatestLog($folder);
+
+if(!$latest){
+    markOffline($conn,$line,$board);
+    return;
+}
+
+if(!hasLogChanged($conn,$line,$board,$latest)){
+    return;
+}
+
+$log=parseLog($latest);
+
+updateCache(
+    $conn,
+    $line,
+    $board,
+    $log,
+    $latest,
+    date("Y-m-d H:i:s",filemtime($latest))
+);
+
+updateSyncStatus(
+    $conn,
+    $line,
+    $board,
+    $latest
+);
+
+=================================================
+Flow
+=================================================
+
+Find Latest TXT
+      ↓
+Compare with sync_status
+      ↓
+Changed?
+  ┌────┴────┐
+  │         │
+ NO        YES
+  │         │
+Skip     Parse Log
+            ↓
+      Update Cache
+            ↓
+   Update sync_status
+
+=================================================
+Benefits
+=================================================
+
+✓ Avoids unnecessary parsing
+✓ Reduces MySQL writes
+✓ Faster synchronization
+✓ Lower CPU and network usage
