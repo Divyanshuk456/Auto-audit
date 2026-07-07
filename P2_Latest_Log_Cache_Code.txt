@@ -1,0 +1,208 @@
+
+AutoAudit Performance - P2 Latest Log Cache (Option B)
+
+========================
+1. printer_ips
+========================
+
+CREATE TABLE printer_ips(
+ id INT AUTO_INCREMENT PRIMARY KEY,
+ line_name VARCHAR(20) UNIQUE,
+ top_ip VARCHAR(50),
+ bottom_ip VARCHAR(50)
+);
+
+Example:
+
+INSERT INTO printer_ips(line_name,top_ip,bottom_ip)
+VALUES
+('SMD-01','192.168.1.10','192.168.1.11');
+
+========================
+2. latest_log_cache
+========================
+
+CREATE TABLE latest_log_cache(
+
+line_name VARCHAR(20),
+board ENUM('TOP','BOTTOM'),
+
+pcb_width VARCHAR(50),
+pcb_thickness VARCHAR(50),
+temperature VARCHAR(50),
+pressure VARCHAR(50),
+print_speed VARCHAR(50),
+
+log_file VARCHAR(255),
+modified_time DATETIME,
+status VARCHAR(20),
+
+PRIMARY KEY(line_name,board)
+
+);
+
+========================
+3. sync_status
+========================
+
+CREATE TABLE sync_status(
+
+line_name VARCHAR(20),
+board ENUM('TOP','BOTTOM'),
+
+last_file VARCHAR(255),
+last_modified DATETIME,
+
+PRIMARY KEY(line_name,board)
+
+);
+
+========================
+4. config.php
+========================
+
+<?php
+
+define("LOG_PATH","D$\\MonitoringData\\MonitoringLogs");
+
+function buildFolder($ip){
+
+    return "\\\\".$ip."\\".LOG_PATH;
+
+}
+
+?>
+
+========================
+5. Cache Update Function
+========================
+
+<?php
+
+function updateCache($conn,$line,$board,$log,$latestFile,$modified){
+
+$stmt=$conn->prepare(
+
+"REPLACE INTO latest_log_cache
+(line_name,board,
+pcb_width,
+pcb_thickness,
+temperature,
+pressure,
+print_speed,
+log_file,
+modified_time,
+status)
+
+VALUES(?,?,?,?,?,?,?,?,?,?)"
+
+);
+
+$status="ONLINE";
+
+$pcbWidth=$log["PCB Width"] ?? "";
+$pcbThickness=$log["Thickness"] ?? "";
+$temp=$log["Temperature"] ?? "";
+$pressure=$log["Pressure"] ?? "";
+$speed=$log["Print Speed"] ?? "";
+
+$stmt->bind_param(
+
+"ssssssssss",
+
+$line,
+$board,
+
+$pcbWidth,
+$pcbThickness,
+$temp,
+$pressure,
+$speed,
+
+$latestFile,
+$modified,
+$status
+
+);
+
+$stmt->execute();
+
+}
+
+?>
+
+========================
+6. Offline Function
+========================
+
+<?php
+
+function markOffline($conn,$line,$board){
+
+$stmt=$conn->prepare(
+
+"UPDATE latest_log_cache
+SET status='OFFLINE'
+WHERE line_name=? AND board=?"
+
+);
+
+$stmt->bind_param("ss",$line,$board);
+
+$stmt->execute();
+
+}
+
+?>
+
+========================
+7. Build Folder
+
+========================
+
+$topFolder=buildFolder($row["top_ip"]);
+
+$bottomFolder=buildFolder($row["bottom_ip"]);
+
+Result
+
+\\\\192.168.1.10\\D$\\MonitoringData\\MonitoringLogs
+
+========================
+8. Sync Flow
+
+Read printer_ips
+
+↓
+
+Build Folder
+
+↓
+
+Latest TXT
+
+↓
+
+Parser
+
+↓
+
+updateCache()
+
+↓
+
+latest_log_cache
+
+↓
+
+autofill.php reads ONLY latest_log_cache
+
+========================
+Performance
+
+No folder scanning during AJAX.
+
+Only SyncLogs.php reads printer folders.
+
+Expected response time:
+50-100 ms on LAN.
