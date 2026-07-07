@@ -1,0 +1,93 @@
+AutoAudit Performance Module P1 - SyncLogs.php
+
+1. Place SyncLogs.php inside AutoAudit/sync/
+
+==================== CODE ====================
+
+<?php
+
+include "../db.php";
+
+function getLatestLog($folder){
+
+    if(!is_dir($folder)) return false;
+
+    $latestFile=false;
+    $latestTime=0;
+
+    foreach(new DirectoryIterator($folder) as $file){
+
+        if($file->isDot()) continue;
+        if(!$file->isFile()) continue;
+        if(strtolower($file->getExtension())!="txt") continue;
+
+        if($file->getMTime()>$latestTime){
+
+            $latestTime=$file->getMTime();
+            $latestFile=$file->getPathname();
+
+        }
+
+    }
+
+    return $latestFile;
+
+}
+
+function parseLog($file){
+
+    $data=[];
+
+    if(!$file || !file_exists($file)) return $data;
+
+    foreach(file($file, FILE_IGNORE_NEW_LINES|FILE_SKIP_EMPTY_LINES) as $line){
+
+        if(strpos($line,"=")!==false){
+
+            list($k,$v)=explode("=",$line,2);
+
+            $data[trim($k)]=trim($v);
+
+        }
+
+    }
+
+    return $data;
+
+}
+
+function processPrinter($conn,$line,$board,$folder){
+
+    $latest=getLatestLog($folder);
+
+    if(!$latest) return;
+
+    $log=parseLog($latest);
+
+    $stmt=$conn->prepare("REPLACE INTO latest_log_cache(line_name,board,pcb_width,pcb_thickness,temperature,pressure,print_speed,log_file,updated_time) VALUES(?,?,?,?,?,?,?,?,NOW())");
+
+    $pcbWidth=$log["PCB Width"] ?? "";
+    $pcbThickness=$log["Thickness"] ?? "";
+    $temperature=$log["Temperature"] ?? "";
+    $pressure=$log["Pressure"] ?? "";
+    $speed=$log["Print Speed"] ?? "";
+
+    $stmt->bind_param("ssssssss",$line,$board,$pcbWidth,$pcbThickness,$temperature,$pressure,$speed,$latest);
+
+    $stmt->execute();
+
+}
+
+$result=$conn->query("SELECT line_name,top_folder,bottom_folder FROM printer_ips");
+
+while($row=$result->fetch_assoc()){
+
+processPrinter($conn,$row["line_name"],"TOP",$row["top_folder"]);
+
+processPrinter($conn,$row["line_name"],"BOTTOM",$row["bottom_folder"]);
+
+}
+
+echo "Sync Complete";
+
+?>
