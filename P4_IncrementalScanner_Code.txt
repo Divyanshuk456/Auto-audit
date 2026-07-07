@@ -1,0 +1,151 @@
+
+AutoAudit Performance Module P4 - IncrementalScanner.php
+
+=================================================
+Purpose
+=================================================
+
+Avoid parsing the same printer log repeatedly.
+
+Only process a printer if the newest TXT file
+has changed since the previous scan.
+
+=================================================
+File : IncrementalScanner.php
+=================================================
+
+<?php
+
+include "../db.php";
+include "config.php";
+include "LatestLog.php";
+include "Parser.php";
+include "Cache.php";
+
+function incrementalScan($conn,$line,$board,$folder){
+
+    if(!is_dir($folder)){
+        markOffline($conn,$line,$board);
+        return;
+    }
+
+    $latest=getLatestLog($folder);
+
+    if(!$latest){
+        markOffline($conn,$line,$board);
+        return;
+    }
+
+    $modified=filemtime($latest);
+
+    $stmt=$conn->prepare(
+    "SELECT last_file,last_modified
+     FROM sync_status
+     WHERE line_name=? AND board=?");
+
+    $stmt->bind_param("ss",$line,$board);
+    $stmt->execute();
+
+    $result=$stmt->get_result();
+
+    $lastFile="";
+    $lastModified=0;
+
+    if($row=$result->fetch_assoc()){
+        $lastFile=$row["last_file"];
+        $lastModified=strtotime($row["last_modified"]);
+    }
+
+    // Nothing changed
+    if($latest==$lastFile && $modified==$lastModified){
+        return;
+    }
+
+    $log=parseLog($latest);
+
+    updateCache(
+        $conn,
+        $line,
+        $board,
+        $log,
+        $latest,
+        date("Y-m-d H:i:s",$modified)
+    );
+
+    $stmt=$conn->prepare(
+    "REPLACE INTO sync_status
+    (line_name,board,last_file,last_modified)
+    VALUES(?,?,?,?)");
+
+    $time=date("Y-m-d H:i:s",$modified);
+
+    $stmt->bind_param(
+        "ssss",
+        $line,
+        $board,
+        $latest,
+        $time
+    );
+
+    $stmt->execute();
+
+}
+
+$query=$conn->query(
+"SELECT line_name,top_ip,bottom_ip
+ FROM printer_ips");
+
+while($row=$query->fetch_assoc()){
+
+    incrementalScan(
+        $conn,
+        $row["line_name"],
+        "TOP",
+        buildFolder($row["top_ip"])
+    );
+
+    incrementalScan(
+        $conn,
+        $row["line_name"],
+        "BOTTOM",
+        buildFolder($row["bottom_ip"])
+    );
+
+}
+
+echo "Incremental Scan Complete";
+
+?>
+
+=================================================
+How It Works
+=================================================
+
+1. Read latest TXT file.
+2. Compare with sync_status.
+3. If filename AND modified time are unchanged:
+      Skip parser.
+4. If changed:
+      Parse file.
+      Update latest_log_cache.
+      Update sync_status.
+
+=================================================
+Advantages
+=================================================
+
+✓ Much faster repeated scans.
+✓ Less network traffic.
+✓ Lower CPU usage.
+✓ Keeps previous values if nothing changes.
+
+=================================================
+Recommended Schedule
+=================================================
+
+Windows Task Scheduler:
+Run every 10-15 seconds.
+
+For higher frequency, consider running
+the script as a continuous background service
+instead of creating overlapping scheduled tasks.
