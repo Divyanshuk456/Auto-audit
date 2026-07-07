@@ -1,0 +1,152 @@
+
+AutoAudit Performance Module P6 - Windows Task Scheduler & Lock System
+
+=================================================
+Purpose
+=================================================
+
+Run SyncLogs.php automatically without user action and
+prevent two sync processes from running at the same time.
+
+=================================================
+File : RunSync.php
+=================================================
+
+<?php
+
+$lockFile=__DIR__."/sync.lock";
+
+if(file_exists($lockFile)){
+
+    $age=time()-filemtime($lockFile);
+
+    // Remove stale lock after 5 minutes
+    if($age<300){
+        exit("Another sync is already running.");
+    }
+
+    unlink($lockFile);
+}
+
+file_put_contents($lockFile,getmypid());
+
+try{
+
+    require "SyncLogs.php";
+
+}catch(Exception $e){
+
+    file_put_contents(
+        __DIR__."/sync_error.log",
+        date("Y-m-d H:i:s")." ".$e->getMessage().PHP_EOL,
+        FILE_APPEND
+    );
+
+}finally{
+
+    if(file_exists($lockFile)){
+        unlink($lockFile);
+    }
+
+}
+
+echo "Sync Finished";
+
+?>
+
+=================================================
+Windows Task Scheduler
+=================================================
+
+Program:
+
+php.exe
+
+Arguments:
+
+D:\xampp\htdocs\AutoAudit\sync\RunSync.php
+
+Start In:
+
+D:\xampp\htdocs\AutoAudit\sync\
+
+Recommended Settings
+
+Trigger:
+Repeat every 10 seconds
+(If Task Scheduler cannot repeat that fast,
+use the shortest interval it supports or
+run RunSync.php as a continuous background process.)
+
+Enable:
+
+✓ Run whether user is logged in or not
+✓ Run with highest privileges
+
+=================================================
+Continuous Loop (Alternative)
+=================================================
+
+<?php
+
+while(true){
+
+    include "RunSync.php";
+
+    sleep(10);
+
+}
+
+?>
+
+Save as:
+
+SyncService.php
+
+Run:
+
+php SyncService.php
+
+=================================================
+Advantages
+=================================================
+
+✓ Automatic updates
+✓ No manual refresh
+✓ Lock file prevents overlapping sync jobs
+✓ Error log for troubleshooting
+✓ Works with latest_log_cache
+
+=================================================
+Flow
+=================================================
+
+Task Scheduler / SyncService
+
+        ↓
+
+RunSync.php
+
+        ↓
+
+Create Lock
+
+        ↓
+
+SyncLogs.php
+
+        ↓
+
+Update latest_log_cache
+
+        ↓
+
+Remove Lock
+
+        ↓
+
+Wait 10 Seconds
+
+        ↓
+
+Repeat
