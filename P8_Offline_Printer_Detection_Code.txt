@@ -1,0 +1,139 @@
+
+AutoAudit Performance Module P8 - Offline Printer Detection
+
+=================================================
+Purpose
+=================================================
+
+Detect printer/network problems and keep the last
+good values while updating the printer status.
+
+Status Values
+
+ONLINE
+OFFLINE
+NO_LOG
+
+=================================================
+Update latest_log_cache
+=================================================
+
+ALTER TABLE latest_log_cache
+ADD COLUMN status VARCHAR(20) DEFAULT 'ONLINE',
+ADD COLUMN error_message VARCHAR(255) NULL;
+
+=================================================
+File : PrinterStatus.php
+=================================================
+
+<?php
+
+function updatePrinterStatus($conn,$line,$board,$status,$message=""){
+
+    $stmt=$conn->prepare("
+    UPDATE latest_log_cache
+    SET status=?, error_message=?
+    WHERE line_name=? AND board=?");
+
+    $stmt->bind_param(
+        "ssss",
+        $status,
+        $message,
+        $line,
+        $board
+    );
+
+    $stmt->execute();
+
+}
+
+function checkPrinterFolder($folder){
+
+    if(!is_dir($folder)){
+        return [
+            "status"=>"OFFLINE",
+            "message"=>"Folder not reachable."
+        ];
+    }
+
+    $latest=getLatestLog($folder);
+
+    if(!$latest){
+        return [
+            "status"=>"NO_LOG",
+            "message"=>"No TXT log found."
+        ];
+    }
+
+    return [
+        "status"=>"ONLINE",
+        "message"=>"OK",
+        "file"=>$latest
+    ];
+
+}
+
+?>
+
+=================================================
+Usage in SyncLogs.php
+=================================================
+
+$status=checkPrinterFolder($folder);
+
+if($status["status"]!="ONLINE"){
+
+    updatePrinterStatus(
+        $conn,
+        $line,
+        $board,
+        $status["status"],
+        $status["message"]
+    );
+
+    return;
+
+}
+
+$latest=$status["file"];
+
+// Continue with parsing...
+
+=================================================
+AJAX Response
+=================================================
+
+{
+  "top":{
+      "status":"ONLINE",
+      "error":""
+  },
+  "bottom":{
+      "status":"OFFLINE",
+      "error":"Folder not reachable."
+  }
+}
+
+=================================================
+audit.php
+=================================================
+
+if(r.top.status=="ONLINE"){
+    $("#topStatus").html("🟢 ONLINE");
+}else if(r.top.status=="NO_LOG"){
+    $("#topStatus").html("🟡 NO LOG");
+}else{
+    $("#topStatus").html("🔴 OFFLINE");
+}
+
+$("#topError").text(r.top.error);
+
+=================================================
+Benefits
+=================================================
+
+✓ Keeps previous audit values
+✓ Shows printer health
+✓ Detects missing folders
+✓ Detects missing logs
+✓ No interruption to the operator
