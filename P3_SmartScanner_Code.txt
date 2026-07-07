@@ -1,0 +1,178 @@
+
+AutoAudit Performance Module P3 - SmartScanner.php
+
+=================================================
+Purpose
+=================================================
+
+Loop through every SMD line, build TOP/BOTTOM
+printer paths from the stored IP addresses,
+read only the newest TXT file and update cache.
+
+=================================================
+File : SmartScanner.php
+=================================================
+
+<?php
+
+include "../db.php";
+include "config.php";
+include "LatestLog.php";
+include "Parser.php";
+include "Cache.php";
+
+$sql="SELECT line_name,top_ip,bottom_ip FROM printer_ips";
+
+$result=$conn->query($sql);
+
+while($row=$result->fetch_assoc()){
+
+    $line=$row["line_name"];
+
+    scanPrinter(
+        $conn,
+        $line,
+        "TOP",
+        buildFolder($row["top_ip"])
+    );
+
+    scanPrinter(
+        $conn,
+        $line,
+        "BOTTOM",
+        buildFolder($row["bottom_ip"])
+    );
+
+}
+
+echo "Scanner Finished";
+
+?>
+
+=================================================
+scanPrinter()
+=================================================
+
+<?php
+
+function scanPrinter($conn,$line,$board,$folder){
+
+    if(!is_dir($folder)){
+        markOffline($conn,$line,$board);
+        return;
+    }
+
+    $latest=getLatestLog($folder);
+
+    if(!$latest){
+        markOffline($conn,$line,$board);
+        return;
+    }
+
+    $modified=date(
+        "Y-m-d H:i:s",
+        filemtime($latest)
+    );
+
+    $stmt=$conn->prepare(
+    "SELECT last_file
+     FROM sync_status
+     WHERE line_name=? AND board=?");
+
+    $stmt->bind_param("ss",$line,$board);
+    $stmt->execute();
+
+    $res=$stmt->get_result();
+
+    $last="";
+
+    if($r=$res->fetch_assoc()){
+        $last=$r["last_file"];
+    }
+
+    if($last==$latest){
+        return;
+    }
+
+    $log=parseLog($latest);
+
+    updateCache(
+        $conn,
+        $line,
+        $board,
+        $log,
+        $latest,
+        $modified
+    );
+
+    $stmt=$conn->prepare(
+    "REPLACE INTO sync_status
+    (line_name,board,last_file,last_modified)
+    VALUES(?,?,?,?)");
+
+    $stmt->bind_param(
+        "ssss",
+        $line,
+        $board,
+        $latest,
+        $modified
+    );
+
+    $stmt->execute();
+
+}
+
+?>
+
+=================================================
+Folder Built
+=================================================
+
+Top
+
+\\\\192.168.1.10\\D$\\MonitoringData\\MonitoringLogs
+
+Bottom
+
+\\\\192.168.1.11\\D$\\MonitoringData\\MonitoringLogs
+
+=================================================
+Flow
+=================================================
+
+Read printer_ips
+
+↓
+
+Build Folder
+
+↓
+
+Latest TXT
+
+↓
+
+Skip if already processed
+
+↓
+
+Parse
+
+↓
+
+Update latest_log_cache
+
+↓
+
+Update sync_status
+
+↓
+
+Next Line
+
+=================================================
+Result
+=================================================
+
+Runs through all 62 lines and both printers,
+updating only when a newer log is found.
