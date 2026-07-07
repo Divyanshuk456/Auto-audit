@@ -1,0 +1,116 @@
+
+AutoAudit Performance Module P9 - Optimized Parser
+
+=================================================
+Purpose
+=================================================
+
+Read only the required parameters from the latest
+printer log instead of storing every line.
+
+This improves parsing speed and reduces memory usage.
+
+=================================================
+File : Parser.php
+=================================================
+
+<?php
+
+function parseLog($file){
+
+    $required=[
+        "PCB Width",
+        "Thickness",
+        "Temperature",
+        "Pressure",
+        "Print Speed"
+    ];
+
+    $data=[];
+
+    if(!$file || !file_exists($file)){
+        return $data;
+    }
+
+    $handle=fopen($file,"r");
+
+    if(!$handle){
+        return $data;
+    }
+
+    while(($line=fgets($handle))!==false){
+
+        $line=trim($line);
+
+        if(strpos($line,"=")===false){
+            continue;
+        }
+
+        list($key,$value)=explode("=",$line,2);
+
+        $key=trim($key);
+        $value=trim($value);
+
+        if(in_array($key,$required,true)){
+            $data[$key]=$value;
+        }
+
+        if(count($data)==count($required)){
+            break;
+        }
+    }
+
+    fclose($handle);
+
+    return $data;
+}
+
+?>
+
+=================================================
+Custom Parameters
+=================================================
+
+Later, simply edit:
+
+$required=[
+    "PCB Width",
+    "Thickness",
+    "Temperature",
+    "Pressure",
+    "Print Speed"
+];
+
+to match your actual SmartSP log keys.
+
+=================================================
+Usage
+=================================================
+
+$log=parseLog($latestFile);
+
+updateCache(
+    $conn,
+    $line,
+    $board,
+    $log,
+    $latestFile,
+    date("Y-m-d H:i:s",filemtime($latestFile))
+);
+
+=================================================
+Advantages
+=================================================
+
+✓ Reads only required parameters
+✓ Stops early when all required values are found
+✓ Faster on large log files
+✓ Easy to customize
+✓ Lower memory usage
+
+=================================================
+Next
+=================================================
+
+P10 will integrate all modules into the final
+production workflow for AutoAudit.
