@@ -1,0 +1,170 @@
+
+AutoAudit Performance Module P5 - Fast AJAX (autofill.php)
+
+=================================================
+Purpose
+=================================================
+
+Do NOT read printer folders during AJAX requests.
+
+Only read the latest values already stored in
+latest_log_cache by SyncLogs.php.
+
+=================================================
+File : autofill.php
+=================================================
+
+<?php
+
+include "db.php";
+
+header("Content-Type: application/json");
+
+$line=$_POST["line"] ?? "";
+
+if($line==""){
+    echo json_encode([
+        "status"=>"error",
+        "message"=>"No line selected."
+    ]);
+    exit;
+}
+
+$stmt=$conn->prepare("
+SELECT
+board,
+pcb_width,
+pcb_thickness,
+temperature,
+pressure,
+print_speed,
+log_file,
+modified_time,
+status
+FROM latest_log_cache
+WHERE line_name=?
+");
+
+$stmt->bind_param("s",$line);
+$stmt->execute();
+
+$result=$stmt->get_result();
+
+$response=[
+    "status"=>"success",
+    "line"=>$line,
+    "top"=>[],
+    "bottom"=>[]
+];
+
+while($row=$result->fetch_assoc()){
+
+    $item=[
+        "pcbWidth"=>$row["pcb_width"],
+        "pcbThickness"=>$row["pcb_thickness"],
+        "temperature"=>$row["temperature"],
+        "pressure"=>$row["pressure"],
+        "printSpeed"=>$row["print_speed"],
+        "logFile"=>$row["log_file"],
+        "modified"=>$row["modified_time"],
+        "status"=>$row["status"]
+    ];
+
+    if($row["board"]=="TOP"){
+        $response["top"]=$item;
+    }else{
+        $response["bottom"]=$item;
+    }
+}
+
+echo json_encode($response);
+
+?>
+
+=================================================
+AJAX (audit.php)
+=================================================
+
+<script>
+
+$("#line").change(function(){
+
+    $.ajax({
+
+        url:"autofill.php",
+        type:"POST",
+        dataType:"json",
+        data:{
+            line:$("#line").val()
+        },
+
+        success:function(r){
+
+            if(r.status!="success"){
+                alert(r.message);
+                return;
+            }
+
+            $("#top_pcbThickness").val(r.top.pcbThickness);
+            $("#top_pressure").val(r.top.pressure);
+            $("#top_temperature").val(r.top.temperature);
+
+            $("#bottom_pcbThickness").val(r.bottom.pcbThickness);
+            $("#bottom_pressure").val(r.bottom.pressure);
+            $("#bottom_temperature").val(r.bottom.temperature);
+
+            $("#top_status").text(r.top.status);
+            $("#bottom_status").text(r.bottom.status);
+
+            $("#lastUpdate").text(
+                "Updated : "+r.top.modified
+            );
+
+        },
+
+        error:function(){
+            alert("Unable to load cache.");
+        }
+
+    });
+
+});
+
+</script>
+
+=================================================
+Required HTML
+=================================================
+
+<div id="top_status"></div>
+<div id="bottom_status"></div>
+<div id="lastUpdate"></div>
+
+=================================================
+Flow
+=================================================
+
+Operator Selects Line
+        ↓
+AJAX
+        ↓
+autofill.php
+        ↓
+latest_log_cache
+        ↓
+JSON
+        ↓
+Populate Form
+        ↓
+No Folder Access
+        ↓
+No Delay
+
+=================================================
+Benefits
+=================================================
+
+✓ No network folder scanning
+✓ Reads only MySQL
+✓ Fast response
+✓ Uses background SyncLogs cache
