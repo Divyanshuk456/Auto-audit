@@ -1,0 +1,137 @@
+AutoAudit - Complete Printer Log Workflow
+
+====================================================
+PROJECT ARCHITECTURE
+====================================================
+
+Windows Task Scheduler
+        |
+RunSync.php
+        |
+SyncLogs.php
+        |
+Read printer_ips
+        |
++-------------------------------+
+|                               |
+TOP Printer                 BOTTOM Printer
+|                               |
+\\<TOP_IP>\D$\MonitoringData\MonitoringLogs
+\\<BOTTOM_IP>\D$\MonitoringData\MonitoringLogs
+|                               |
++---------------+---------------+
+                |
+Find Latest TXT (Modified Time)
+                |
+Change Detection
+                |
+No Change ---> Skip
+                |
+New Log
+                |
+Optimized Parser
+                |
+Update latest_log_cache
+                |
+Update sync_status
+                |
+Wait for next scheduler cycle
+
+====================================================
+USER FLOW
+====================================================
+
+audit.php
+    |
+Select Line
+    |
+AJAX
+    |
+autofill.php
+    |
+Read latest_log_cache
+    |
+Return JSON
+    |
+Auto Fill Form
+    |
+Operator Reviews
+    |
+save_audit.php
+    |
+audit_data
+
+====================================================
+DATABASE TABLES
+====================================================
+
+printer_ips
+------------
+line_name
+top_ip
+bottom_ip
+
+latest_log_cache
+----------------
+line_name
+board
+pcb_width
+pcb_thickness
+temperature
+pressure
+print_speed
+log_file
+modified_time
+status
+
+sync_status
+-----------
+line_name
+board
+last_file
+last_modified
+
+audit_data
+----------
+Completed audits
+
+sync_error_log
+--------------
+Synchronization errors
+
+====================================================
+MODULES
+====================================================
+
+Core:
+1. AJAX
+2. Database Lookup
+3. Latest Log Detection
+4. Log Parser
+5. Auto Fill
+6. Merge Top & Bottom
+7. Save Audit
+
+Performance:
+P1 Background Synchronizer
+P2 Latest Log Cache
+P3 Smart Scanner
+P4 Incremental Scanner
+P5 Fast AJAX
+P6 Background Service
+P7 Change Detection
+P8 Offline Printer Detection
+P9 Optimized Parser
+P10 Final Integration
+
+====================================================
+BENEFITS
+====================================================
+
+- No page reload
+- Fast AJAX
+- Background synchronization
+- Latest values cached in MySQL
+- Offline detection
+- Optimized parsing
+- Suitable for 62 lines and 124 printers
