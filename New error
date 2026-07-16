@@ -1,0 +1,57 @@
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
+# Fixed path (only the date/time folder changes)
+$BasePath = "D:\DEFECTS\defectsprinter\SMD-11\cv #2\Model Name"
+
+# Find the newest log.txt inside the dynamic folders
+$LatestLog = Get-ChildItem -Path $BasePath -Filter "log.txt" -Recurse |
+             Sort-Object LastWriteTime -Descending |
+             Select-Object -First 1
+
+if (!$LatestLog)
+{
+    Write-Host "No log file found."
+    exit
+}
+
+# Read the latest log
+$Content = Get-Content $LatestLog.FullName
+
+# Find the Board revision line
+$RevisionLine = $Content | Where-Object { $_ -match "Board revision" }
+
+if ($RevisionLine)
+{
+    if ($RevisionLine -match "04")
+    {
+        # NG Alarm
+        $form = New-Object System.Windows.Forms.Form
+        $form.Text = "NG REVISION"
+        $form.Size = New-Object System.Drawing.Size(900,450)
+        $form.BackColor = "Red"
+        $form.StartPosition = "CenterScreen"
+        $form.TopMost = $true
+
+        $label = New-Object System.Windows.Forms.Label
+        $label.Text = "NG REVISION DETECTED`n`n$RevisionLine"
+        $label.ForeColor = "White"
+        $label.Font = New-Object System.Drawing.Font("Arial",28,[System.Drawing.FontStyle]::Bold)
+        $label.AutoSize = $true
+        $label.Location = New-Object System.Drawing.Point(60,120)
+
+        $form.Controls.Add($label)
+
+        [console]::Beep(1500,1000)
+
+        $form.ShowDialog()
+    }
+    else
+    {
+        Write-Host "Revision OK : $RevisionLine"
+    }
+}
+else
+{
+    Write-Host "Board revision not found."
+}
