@@ -1,0 +1,165 @@
+import os
+import time
+import re
+import tkinter as tk
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+
+# ---------------------------------------------------------
+# CHANGE THIS PATH
+# ---------------------------------------------------------
+
+ROOT_DIRECTORY = r"D:\DEFECTS\defectsprinter\SMD-11\CV #2\Model Name"
+
+# ---------------------------------------------------------
+
+EXPECTED_REVISION = "05"
+
+last_checked = ""
+
+
+def find_latest_log():
+
+    newest_file = None
+    newest_time = 0
+
+    for root, dirs, files in os.walk(ROOT_DIRECTORY):
+
+        if "InspectionResult.txt" in files:
+
+            file = os.path.join(root, "InspectionResult.txt")
+
+            t = os.path.getmtime(file)
+
+            if t > newest_time:
+                newest_time = t
+                newest_file = file
+
+    return newest_file
+
+
+def show_alarm(found):
+
+    window = tk.Tk()
+
+    window.title("NG REVISION")
+
+    window.attributes("-fullscreen", True)
+
+    window.configure(bg="red")
+
+    label1 = tk.Label(
+        window,
+        text="NG BOARD REVISION",
+        font=("Arial", 60, "bold"),
+        fg="white",
+        bg="red"
+    )
+
+    label1.pack(pady=80)
+
+    label2 = tk.Label(
+        window,
+        text=f"Found Revision : {found}",
+        font=("Arial", 40),
+        fg="yellow",
+        bg="red"
+    )
+
+    label2.pack()
+
+    label3 = tk.Label(
+        window,
+        text="Press ESC to Close",
+        font=("Arial", 20),
+        fg="white",
+        bg="red"
+    )
+
+    label3.pack(pady=60)
+
+    window.bind("<Escape>", lambda e: window.destroy())
+
+    window.mainloop()
+
+
+def check_revision(file):
+
+    global last_checked
+
+    if file == last_checked:
+        return
+
+    last_checked = file
+
+    try:
+
+        with open(file, "r", encoding="utf-8", errors="ignore") as f:
+
+            text = f.read()
+
+        match = re.search(r"Barcode revision\s*=\s*A176BR(\d+)", text)
+
+        if match:
+
+            revision = match.group(1)
+
+            print("Revision :", revision)
+
+            if revision != EXPECTED_REVISION:
+
+                show_alarm(revision)
+
+            else:
+
+                print("OK")
+
+        else:
+
+            print("Barcode Revision Not Found")
+
+    except Exception as e:
+
+        print(e)
+
+
+class FolderWatcher(FileSystemEventHandler):
+
+    def on_created(self, event):
+
+        if event.is_directory:
+
+            time.sleep(1)
+
+            latest = find_latest_log()
+
+            if latest:
+
+                check_revision(latest)
+
+
+observer = Observer()
+
+observer.schedule(FolderWatcher(), ROOT_DIRECTORY, recursive=True)
+
+observer.start()
+
+print("Monitoring Started...")
+
+try:
+
+    while True:
+
+        latest = find_latest_log()
+
+        if latest:
+
+            check_revision(latest)
+
+        time.sleep(1)
+
+except KeyboardInterrupt:
+
+    observer.stop()
+
+observer.join()
