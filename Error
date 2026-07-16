@@ -1,0 +1,63 @@
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
+#===========================
+# Log Folder Location
+#===========================
+$LogFolder = "C:\Logs"      # Change this to your log folder
+
+# Get latest TXT file
+$LatestLog = Get-ChildItem $LogFolder -Filter *.txt |
+             Sort-Object LastWriteTime -Descending |
+             Select-Object -First 1
+
+if ($LatestLog -eq $null)
+{
+    Write-Host "No log file found."
+    exit
+}
+
+# Read log file
+$Content = Get-Content $LatestLog.FullName
+
+# Find Board Revision line
+$RevisionLine = $Content | Where-Object { $_ -match "Board revision" }
+
+if ($RevisionLine)
+{
+    Write-Host "Found: $RevisionLine"
+
+    # If revision contains 04 -> NG Alarm
+    if ($RevisionLine -match "04")
+    {
+        $form = New-Object System.Windows.Forms.Form
+        $form.Text = "NG REVISION"
+        $form.Size = New-Object System.Drawing.Size(900,500)
+        $form.StartPosition = "CenterScreen"
+        $form.BackColor = [System.Drawing.Color]::Red
+        $form.TopMost = $true
+        $form.FormBorderStyle = "FixedDialog"
+
+        $label = New-Object System.Windows.Forms.Label
+        $label.Text = "NG REVISION DETECTED`n$RevisionLine"
+        $label.ForeColor = [System.Drawing.Color]::White
+        $label.Font = New-Object System.Drawing.Font("Arial",28,[System.Drawing.FontStyle]::Bold)
+        $label.AutoSize = $true
+        $label.Location = New-Object System.Drawing.Point(80,150)
+
+        $form.Controls.Add($label)
+
+        # Alarm Sound
+        [System.Media.SystemSounds]::Hand.Play()
+
+        $form.ShowDialog()
+    }
+    else
+    {
+        Write-Host "Revision OK"
+    }
+}
+else
+{
+    Write-Host "Board revision not found in log."
+}
