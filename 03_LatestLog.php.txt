@@ -1,0 +1,54 @@
+<?php
+/*
+|--------------------------------------------------------------------------
+| LatestLog.php
+|--------------------------------------------------------------------------
+| Finds the latest TXT log file inside a printer log folder.
+*/
+
+/**
+ * Returns the full path of the newest TXT file.
+ *
+ * @param string $folderPath
+ * @return string|false
+ */
+function getLatestLog($folderPath)
+{
+    if (!is_dir($folderPath)) {
+        return false;
+    }
+
+    $latestFile = false;
+    $latestTime = 0;
+
+    foreach (glob($folderPath . DIRECTORY_SEPARATOR . '*.txt') as $file) {
+
+        if (!is_file($file)) {
+            continue;
+        }
+
+        $modified = filemtime($file);
+
+        if ($modified > $latestTime) {
+            $latestTime = $modified;
+            $latestFile = $file;
+        }
+    }
+
+    return $latestFile;
+}
+
+/*
+Example:
+
+$folder = "\\\\192.168.1.101\\D$\\MonitoringData\\MonitoringLogs";
+
+$latest = getLatestLog($folder);
+
+if($latest){
+    echo $latest;
+}else{
+    echo "No log file found.";
+}
+*/
+?>
