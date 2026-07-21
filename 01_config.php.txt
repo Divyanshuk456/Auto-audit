@@ -1,0 +1,33 @@
+<?php
+/*
+|--------------------------------------------------------------------------
+| config.php
+|--------------------------------------------------------------------------
+| Global configuration file for AutoAudit
+*/
+
+date_default_timezone_set('Asia/Kolkata');
+
+/* Database Configuration */
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'autoaudit');
+define('DB_USER', 'root');
+define('DB_PASS', '');
+
+/* Printer Log Configuration */
+/*
+Example generated path:
+\\\\192.168.1.101\\D$\\MonitoringData\\MonitoringLogs
+*/
+define('LOG_FOLDER', 'D:\\MonitoringData\\MonitoringLogs');
+
+/* Sync interval in seconds */
+define('SYNC_INTERVAL', 10);
+
+/* Debug mode */
+define('DEBUG_MODE', false);
+
+/* Log extension */
+define('LOG_EXTENSION', 'txt');
+
+?>
