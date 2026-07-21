@@ -1,0 +1,70 @@
+<?php
+/*
+|--------------------------------------------------------------------------
+| SyncLogs.php
+|--------------------------------------------------------------------------
+| Reads the latest printer logs and updates latest_log_cache.
+*/
+
+require_once 'config.php';
+require_once 'db.php';
+require_once 'LatestLog.php';
+require_once 'Parser.php';
+
+$sql = "SELECT line_name, top_ip, bottom_ip FROM printer_ips ORDER BY line_name";
+$result = $conn->query($sql);
+
+while ($row = $result->fetch_assoc()) {
+
+    $line = $row['line_name'];
+
+    $printers = [
+        'TOP'    => $row['top_ip'],
+        'BOTTOM' => $row['bottom_ip']
+    ];
+
+    foreach ($printers as $board => $ip) {
+
+        $folder = "\\\\" . $ip . "\\" . LOG_FOLDER;
+
+        $latestFile = getLatestLog($folder);
+
+        if ($latestFile === false) {
+            echo "$line $board : No log found\n";
+            continue;
+        }
+
+        $data = parseLog($latestFile);
+
+        if ($data === false) {
+            echo "$line $board : Parse failed\n";
+            continue;
+        }
+
+        $jsonData = json_encode($data);
+
+        $stmt = $conn->prepare("
+            REPLACE INTO latest_log_cache
+            (line_name, board, log_file, modified_time, log_data)
+            VALUES (?, ?, ?, NOW(), ?)
+        ");
+
+        $stmt->bind_param(
+            "ssss",
+            $line,
+            $board,
+            $latestFile,
+            $jsonData
+        );
+
+        $stmt->execute();
+        $stmt->close();
+
+        echo "$line $board : Updated\n";
+    }
+}
+
+$conn->close();
+
+echo "Sync Completed";
+?>
