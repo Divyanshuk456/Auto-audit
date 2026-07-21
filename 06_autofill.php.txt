@@ -1,0 +1,64 @@
+<?php
+/*
+|--------------------------------------------------------------------------
+| autofill.php
+|--------------------------------------------------------------------------
+| Returns latest printer data as JSON for AJAX requests.
+*/
+
+require_once 'config.php';
+require_once 'db.php';
+
+header('Content-Type: application/json');
+
+if (!isset($_GET['line'])) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'Line not specified.'
+    ]);
+    exit;
+}
+
+$line = trim($_GET['line']);
+
+$stmt = $conn->prepare("
+    SELECT board, log_data, log_file, modified_time
+    FROM latest_log_cache
+    WHERE line_name = ?
+");
+
+$stmt->bind_param("s", $line);
+$stmt->execute();
+
+$result = $stmt->get_result();
+
+$response = [
+    'success' => true,
+    'line' => $line,
+    'printers' => []
+];
+
+while ($row = $result->fetch_assoc()) {
+
+    $response['printers'][$row['board']] = [
+        'log_file'      => $row['log_file'],
+        'modified_time' => $row['modified_time'],
+        'data'          => json_decode($row['log_data'], true)
+    ];
+}
+
+$stmt->close();
+$conn->close();
+
+echo json_encode($response, JSON_PRETTY_PRINT);
+?>
+
+
+/*
+AJAX Example
+
+fetch("autofill.php?line=SMD-01")
+.then(response => response.json())
+.then(data => console.log(data));
+
+*/
