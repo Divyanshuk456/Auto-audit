@@ -1,0 +1,38 @@
+<?php
+/*
+|--------------------------------------------------------------------------
+| save_audit.php
+|--------------------------------------------------------------------------
+| Saves the completed audit into the audit_data table.
+*/
+
+require_once 'config.php';
+require_once 'db.php';
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    die("Invalid request.");
+}
+
+$line = trim($_POST['line_name'] ?? '');
+
+if ($line === '') {
+    die("SMD Line is required.");
+}
+
+$stmt = $conn->prepare("
+INSERT INTO audit_data
+(line_name, audit_date)
+VALUES (?, NOW())
+");
+
+$stmt->bind_param("s", $line);
+
+if ($stmt->execute()) {
+    echo "Audit saved successfully.";
+} else {
+    echo "Failed to save audit.";
+}
+
+$stmt->close();
+$conn->close();
+?>
