@@ -1,0 +1,54 @@
+-- =========================================
+-- AutoAudit Database
+-- =========================================
+
+CREATE DATABASE IF NOT EXISTS autoaudit;
+USE autoaudit;
+
+-- -----------------------------------------
+-- Printer IP Configuration
+-- -----------------------------------------
+CREATE TABLE printer_ips (
+    line_name VARCHAR(20) PRIMARY KEY,
+    top_ip VARCHAR(50) NOT NULL,
+    bottom_ip VARCHAR(50) NOT NULL
+);
+
+-- -----------------------------------------
+-- Latest Printer Log Cache
+-- -----------------------------------------
+CREATE TABLE latest_log_cache (
+    line_name VARCHAR(20) NOT NULL,
+    board ENUM('TOP','BOTTOM') NOT NULL,
+    log_file VARCHAR(255) NOT NULL,
+    modified_time DATETIME NOT NULL,
+    log_data LONGTEXT NOT NULL,
+    PRIMARY KEY (line_name, board)
+);
+
+-- -----------------------------------------
+-- Saved Audits
+-- -----------------------------------------
+CREATE TABLE audit_data (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    line_name VARCHAR(20) NOT NULL,
+    audit_date DATETIME NOT NULL
+);
+
+-- -----------------------------------------
+-- Sync Error Log
+-- -----------------------------------------
+CREATE TABLE sync_error_log (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    line_name VARCHAR(20),
+    board ENUM('TOP','BOTTOM'),
+    error_message TEXT,
+    log_time DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- -----------------------------------------
+-- Sample Printer Data
+-- -----------------------------------------
+INSERT INTO printer_ips (line_name, top_ip, bottom_ip) VALUES
+('SMD-01','192.168.1.101','192.168.1.102'),
+('SMD-02','192.168.1.103','192.168.1.104');
