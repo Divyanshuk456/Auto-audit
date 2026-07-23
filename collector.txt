@@ -1,0 +1,42 @@
+<?php
+
+include "database.php";
+include "config.php";
+include "parser.php";
+
+foreach ($printers as $printer)
+{
+    $files = glob($printer['path']."/*");
+
+    if (empty($files))
+        continue;
+
+    usort($files, function($a, $b){
+        return filemtime($b) - filemtime($a);
+    });
+
+    $latest = $files[0];
+
+    $data = parseLog($latest);
+
+    $stmt = $conn->prepare("
+    INSERT INTO printer_latest_logs
+    (smd_line,printer_type,model_name,program_name,inspection_result)
+    VALUES(?,?,?,?,?)
+    ON DUPLICATE KEY UPDATE
+    model_name=VALUES(model_name),
+    program_name=VALUES(program_name),
+    inspection_result=VALUES(inspection_result)
+    ");
+
+    $stmt->bind_param(
+        "sssss",
+        $printer['smd'],
+        $printer['type'],
+        $data['model'],
+        $data['program'],
+        $data['result']
+    );
+
+    $stmt->execute();
+}

@@ -1,0 +1,23 @@
+<?php
+
+$printers = [
+
+[
+"smd"=>"SMD-01",
+"type"=>"TOP",
+"path"=>"D:/DEFECTS/SMD-01/TOP"
+],
+
+[
+"smd"=>"SMD-01",
+"type"=>"BOTTOM",
+"path"=>"D:/DEFECTS/SMD-01/BOTTOM"
+],
+
+[
+"smd"=>"SMD-02",
+"type"=>"TOP",
+"path"=>"D:/DEFECTS/SMD-02/TOP"
+]
+
+];

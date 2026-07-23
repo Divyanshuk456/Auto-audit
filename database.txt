@@ -1,0 +1,12 @@
+<?php
+
+$conn = new mysqli(
+    "localhost",
+    "root",
+    "",
+    "autoaudit"
+);
+
+if ($conn->connect_error) {
+    die($conn->connect_error);
+}

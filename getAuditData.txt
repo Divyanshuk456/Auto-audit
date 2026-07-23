@@ -1,0 +1,17 @@
+<?php
+
+include "../collector/database.php";
+
+$line = $_GET['line'];
+
+$stmt = $conn->prepare(
+"SELECT * FROM printer_latest_logs WHERE smd_line=?"
+);
+
+$stmt->bind_param("s", $line);
+
+$stmt->execute();
+
+$result = $stmt->get_result();
+
+echo json_encode($result->fetch_all(MYSQLI_ASSOC));
