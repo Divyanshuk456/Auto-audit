@@ -1,0 +1,74 @@
+function typeValue(element, text, speed = 30) {
+
+    $(element).val("");
+
+    let i = 0;
+
+    let timer = setInterval(function () {
+
+        if (i < text.length) {
+
+            $(element).val($(element).val() + text.charAt(i));
+            i++;
+
+        } else {
+
+            clearInterval(timer);
+
+            // Trigger validation after typing finishes
+            $(element).trigger("input");
+            $(element).trigger("change");
+
+        }
+
+    }, speed);
+}
+
+
+
+success: function(response){
+
+    typeValue("#pcbThickness", response.PCBTHICKNESS);
+    typeValue("#temperature", response.TEMPERATURE);
+    typeValue("#pressure", response.PRESSURE);
+
+}
+
+optional typing one after another
+
+function typeValue(element, text, speed = 30) {
+    return new Promise(resolve => {
+
+        $(element).val("");
+
+        let i = 0;
+
+        let timer = setInterval(function () {
+
+            if (i < text.length) {
+
+                $(element).val($(element).val() + text.charAt(i));
+                i++;
+
+            } else {
+
+                clearInterval(timer);
+
+                $(element).trigger("input");
+                $(element).trigger("change");
+
+                resolve();
+            }
+
+        }, speed);
+
+    });
+}
+
+success: async function(response){
+
+    await typeValue("#pcbThickness", response.PCBTHICKNESS);
+    await typeValue("#temperature", response.TEMPERATURE);
+    await typeValue("#pressure", response.PRESSURE);
+
+}
