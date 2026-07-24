@@ -1,0 +1,84 @@
+audit.php
+
+
+<select id="smd_line" name="smd_line">
+    <option value="">Select Line</option>
+    <option value="SMD-01">SMD-01</option>
+    <option value="SMD-02">SMD-02</option>
+    <option value="SMD-03">SMD-03</option>
+</select>
+
+<input type="text" id="pcbThickness" name="pcbThickness">
+<input type="text" id="temperature" name="temperature">
+<input type="text" id="pressure" name="pressure">
+
+
+audit.php
+
+
+$(document).ready(function () {
+
+    $("#smd_line").change(function () {
+
+        var line = $(this).val();
+
+        if (line == "") return;
+
+        $.ajax({
+
+            url: "getAuditData.php",
+
+            type: "POST",
+
+            data: {
+                line: line
+            },
+
+            dataType: "json",
+
+            success: function (response) {
+
+                $("#pcbThickness").val(response.PCBTHICKNESS);
+                $("#temperature").val(response.TEMPERATURE);
+                $("#pressure").val(response.PRESSURE);
+
+            },
+
+            error: function () {
+                alert("Unable to fetch data.");
+            }
+
+        });
+
+    });
+
+});
+
+
+getaudit.php
+
+<?php
+
+include "database.php";
+
+$line = $_POST['line'];
+
+$sql = "SELECT *
+        FROM printer_latest_logs
+        WHERE smd_line = ?
+        ORDER BY updated_at DESC
+        LIMIT 1";
+
+$stmt = $conn->prepare($sql);
+
+$stmt->bind_param("s", $line);
+
+$stmt->execute();
+
+$result = $stmt->get_result();
+
+$row = $result->fetch_assoc();
+
+echo json_encode($row);
+
+
